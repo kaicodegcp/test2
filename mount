@@ -1,0 +1,48 @@
+reclaim_and_merge_lv.sh
+#!/bin/bash
+
+set -e
+
+echo "[INFO] Stopping Docker and related services..."
+systemctl stop docker || true
+
+echo "[INFO] Unmounting target mount points..."
+umount -lf /opt/Cloudera || true
+umount -lf /opt/cloudera || true
+umount -lf /var/app/bigdata || true
+umount -lf /var/app/log || true
+umount -lf /docker || true
+umount -lf /docker3 || true
+umount -lf /opt/cgfiles || true
+
+echo "[INFO] Removing old LVs..."
+lvremove -y /dev/datavg/lv_opt_Cloudera || true
+lvremove -y /dev/datavg/lv_opt_cloudera || true
+lvremove -y /dev/datavg/lv_var_app_bigdata || true
+lvremove -y /dev/datavg/lv_var_app_log || true
+lvremove -y /dev/datavg/lv_docker || true
+lvremove -y /dev/datavg/lv_docker3 || true
+lvremove -y /dev/datavg/lv_opt_cgfiles || true
+
+echo "[INFO] Refreshing VG space..."
+vgdisplay datavg | grep "Free  PE"
+
+echo "[INFO] Creating new consolidated LV: lv_docker_combined..."
+lvcreate -l 100%FREE -n lv_docker_combined datavg
+
+echo "[INFO] Formatting new LV with XFS..."
+mkfs.xfs /dev/datavg/lv_docker_combined
+
+echo "[INFO] Creating /docker mount point..."
+mkdir -p /docker
+
+echo "[INFO] Mounting /docker..."
+mount /dev/datavg/lv_docker_combined /docker
+
+echo "[INFO] Updating /etc/fstab for persistence..."
+grep -q "lv_docker_combined" /etc/fstab || echo "/dev/mapper/datavg-lv_docker_combined /docker xfs defaults 0 0" >> /etc/fstab
+
+echo "[INFO] Final mounted filesystems:"
+df -hT | grep docker
+
+echo "[✅ COMPLETED] All requested volumes consolidated under /docker"
