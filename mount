@@ -46,3 +46,23 @@ echo "[INFO] Final mounted filesystems:"
 df -hT | grep docker
 
 echo "[✅ COMPLETED] All requested volumes consolidated under /docker"
+
+
+
+
+============================================
+
+
+umount /docker
+lvremove -y /dev/mapper/datavg-lv_docker_combined
+
+lvcreate -L 400G -n lv_docker_combined datavg
+mkfs.xfs /dev/mapper/datavg-lv_docker_combined
+mkdir -p /docker
+mount /dev/mapper/datavg-lv_docker_combined /docker
+
+lvextend -L 990G /dev/mapper/datavg-lv_docker2
+xfs_growfs /docker2
+
+df -h | grep -E 'docker2|docker'
+
