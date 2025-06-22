@@ -66,3 +66,45 @@ xfs_growfs /docker2
 
 df -h | grep -E 'docker2|docker'
 
+
+=====================================
+
+mkdir /tmp/missing
+for img in /docker/1.5.5/images/*.tar.gz; do
+    name=$(basename "$img" .tar.gz)
+    docker images | grep -q "$name"
+    if [ $? -ne 0 ]; then
+        echo "$img" >> /tmp/missing/not_loaded.txt
+    fi
+done
+
+cat /tmp/missing/not_loaded.txt
+
+#!/bin/bash
+
+# Load missing Docker images from a list
+INPUT_FILE="/tmp/missing/not_loaded.txt"
+
+echo "=== Starting Docker image load from $INPUT_FILE ==="
+
+if [[ ! -f "$INPUT_FILE" ]]; then
+    echo "❌ Input file not found: $INPUT_FILE"
+    exit 1
+fi
+
+while read -r tarfile; do
+    if [[ -f "$tarfile" ]]; then
+        echo "➡️ Loading $tarfile ..."
+        docker load -i "$tarfile"
+        if [[ $? -eq 0 ]]; then
+            echo "✅ Successfully loaded: $tarfile"
+        else
+            echo "❌ Failed to load: $tarfile"
+        fi
+    else
+        echo "⚠️ File not found: $tarfile"
+    fi
+done < "$INPUT_FILE"
+
+echo "=== Docker image loading complete ==="
+
