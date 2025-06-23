@@ -108,3 +108,40 @@ done < "$INPUT_FILE"
 
 echo "=== Docker image loading complete ==="
 
+
+==================================
+
+#!/bin/bash
+
+# Internal registry
+INTERNAL_REG="sd-wv58-kflz.nam.nsroot.net:5000"
+
+# Input file with images to process
+IMAGE_LIST="file4.txt"
+
+echo "=== Starting re-tag + push + cleanup for Docker images ==="
+
+while read -r old_img; do
+  # Extract image path after the AWS/ECR domain
+  suffix=$(echo "$old_img" | sed -E 's|.*amazonaws.com/||')
+
+  # Compose new internal tag
+  new_img="${INTERNAL_REG}/${suffix}"
+
+  echo "-----------------------------------------"
+  echo "🔄 Retagging:   $old_img --> $new_img"
+  docker tag "$old_img" "$new_img"
+
+  echo "📤 Pushing:     $new_img"
+  docker push "$new_img"
+
+  echo "🧹 Removing old tag: $old_img"
+  docker rmi "$old_img"
+
+done < "$IMAGE_LIST"
+
+echo "✅ Done. All images re-tagged, pushed, and cleaned up."
+
+
+=====
+./retag_push_clean.sh
