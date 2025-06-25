@@ -74,3 +74,63 @@ echo "==> Mounting all filesystems..."
 mount -a
 
 echo "==> Filesystem layout applied successfully."
+
+
+===========
+
+#!/bin/bash
+set -e
+
+echo "==> Creating RAID 1 arrays using 10 disks..."
+mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc --force --run
+mdadm --create /dev/md1 --level=1 --raid-devices=2 /dev/sdd /dev/sde --force --run
+mdadm --create /dev/md2 --level=1 --raid-devices=2 /dev/sdf /dev/sdg --force --run
+mdadm --create /dev/md3 --level=1 --raid-devices=2 /dev/sdh /dev/sdi --force --run
+mdadm --create /dev/md4 --level=1 --raid-devices=2 /dev/sdj /dev/sdk --force --run
+
+echo "==> Saving mdadm config..."
+mdadm --detail --scan >> /etc/mdadm.conf
+
+echo "==> Creating physical volumes..."
+pvcreate /dev/md0 /dev/md1 /dev/md2 /dev/md3 /dev/md4
+
+echo "==> Creating volume group 'datavg'..."
+vgcreate datavg /dev/md0 /dev/md1 /dev/md2 /dev/md3 /dev/md4
+
+echo "==> Creating logical volumes with full RAID pair sizes..."
+lvcreate -n lv_app_log -L 7.2T datavg
+lvcreate -n lv_opt_cloudera -L 100G datavg
+lvcreate -n lv_Opt_Cloudera -L 100G datavg
+lvcreate -n lv_ozone_metadata -L 7.2T datavg
+lvcreate -n lv_recon_data -L 7.2T datavg
+
+echo "==> Formatting LVs as ext4..."
+mkfs.ext4 /dev/datavg/lv_app_log
+mkfs.ext4 /dev/datavg/lv_opt_cloudera
+mkfs.ext4 /dev/datavg/lv_Opt_Cloudera
+mkfs.ext4 /dev/datavg/lv_ozone_metadata
+mkfs.ext4 /dev/datavg/lv_recon_data
+
+echo "==> Creating directories..."
+mkdir -p /var/app/log
+mkdir -p /opt/cloudera
+mkdir -p /opt/Cloudera
+mkdir -p /var/app/lib/hadoop-ozone/recon/ozone-metadata
+mkdir -p /var/app/lib/hadoop-ozone/recon/data
+mkdir -p /var/app/lib/hadoop-ozone/recon/om/data
+mkdir -p /var/app/lib/hadoop-ozone/recon/scm/data
+
+echo "==> Updating /etc/fstab..."
+cat <<EOF >> /etc/fstab
+/dev/datavg/lv_app_log      /var/app/log       ext4 defaults 0 2
+/dev/datavg/lv_opt_cloudera /opt/cloudera      ext4 defaults 0 2
+/dev/datavg/lv_Opt_Cloudera /opt/Cloudera      ext4 defaults 0 2
+/dev/datavg/lv_ozone_metadata /var/app/lib/hadoop-ozone/recon/ozone-metadata ext4 defaults 0 2
+/dev/datavg/lv_recon_data /var/app/lib/hadoop-ozone/recon/data ext4 defaults 0 2
+EOF
+
+echo "==> Mounting filesystems..."
+mount -a
+
+echo "✅ RAID, LVM, and mount configuration complete."
+
