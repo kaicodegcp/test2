@@ -1,0 +1,76 @@
+cleanup_storage.sh
+#!/bin/bash
+
+echo "==> Unmounting existing /data/* mounts..."
+for i in /data/{1..11}; do
+  umount -f "$i" 2>/dev/null
+done
+
+echo "==> Wiping old partitions and signatures on /dev/sd[b-l]..."
+for disk in /dev/sd{b..l}; do
+  echo "  -> Cleaning $disk"
+  wipefs -a "$disk"
+done
+
+echo "==> Cleanup complete. RAID and filesystem will be rebuilt in the next script."
+
+
+====
+build_filesystem_layout.sh
+
+==================
+#!/bin/bash
+
+# Create RAID 1 arrays (adjust if disks differ)
+echo "==> Creating RAID arrays..."
+mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc --force --run
+mdadm --create /dev/md1 --level=1 --raid-devices=2 /dev/sdd /dev/sde --force --run
+mdadm --create /dev/md2 --level=1 --raid-devices=2 /dev/sdf /dev/sdg --force --run
+mdadm --create /dev/md3 --level=1 --raid-devices=2 /dev/sdh /dev/sdi --force --run
+mdadm --create /dev/md4 --level=1 --raid-devices=2 /dev/sdj /dev/sdk --force --run
+
+echo "==> Saving RAID metadata..."
+mdadm --detail --scan >> /etc/mdadm.conf
+
+# Create PVs and VG
+echo "==> Creating LVM Volume Group..."
+pvcreate /dev/md{0..4}
+vgcreate datavg /dev/md{0..4}
+
+# Create LVs
+echo "==> Creating Logical Volumes..."
+lvcreate -n lv_app_log -L 1T datavg
+lvcreate -n lv_app_lib -L 100G datavg
+lvcreate -n lv_opt_cloudera -L 100G datavg
+lvcreate -n lv_Opt_Cloudera -L 100G datavg
+lvcreate -n lv_ozone_metadata -L 3.5T datavg
+lvcreate -n lv_recon_data -L 3.5T datavg
+
+# Format all LVs
+echo "==> Formatting volumes as ext4..."
+for lv in lv_app_log lv_app_lib lv_opt_cloudera lv_Opt_Cloudera lv_ozone_metadata lv_recon_data; do
+  mkfs.ext4 "/dev/datavg/$lv"
+done
+
+# Create mount points
+echo "==> Creating mount points..."
+mkdir -p /var/app/log /var/app/lib /opt/cloudera /opt/Cloudera
+mkdir -p /var/app/lib/hadoop-ozone/recon/ozone-metadata
+mkdir -p /var/app/lib/hadoop-ozone/recon/data
+
+# Update fstab
+echo "==> Updating /etc/fstab..."
+cat <<EOF >> /etc/fstab
+/dev/datavg/lv_app_log      /var/app/log       ext4 defaults 0 2
+/dev/datavg/lv_app_lib      /var/app/lib       ext4 defaults 0 2
+/dev/datavg/lv_opt_cloudera /opt/cloudera      ext4 defaults 0 2
+/dev/datavg/lv_Opt_Cloudera /opt/Cloudera      ext4 defaults 0 2
+/dev/datavg/lv_ozone_metadata /var/app/lib/hadoop-ozone/recon/ozone-metadata ext4 defaults 0 2
+/dev/datavg/lv_recon_data /var/app/lib/hadoop-ozone/recon/data ext4 defaults 0 2
+EOF
+
+# Mount all
+echo "==> Mounting all filesystems..."
+mount -a
+
+echo "==> Filesystem layout applied successfully."
