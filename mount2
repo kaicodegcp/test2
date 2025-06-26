@@ -97,3 +97,31 @@ mount /var/app/lib/hadoop-ozone/recon/om/data
 mount /var/app/lib/hadoop-ozone/recon/scm/data
 
 echo "✅ Only missing LVs have been added and mounted successfully."
+
+
+---------------------
+#!/bin/bash
+set -e
+
+echo "==> Creating mount point directories if they do not exist..."
+mkdir -p /var/app/lib/hadoop-ozone/recon/ozone-metadata
+mkdir -p /var/app/lib/hadoop-ozone/recon/data
+mkdir -p /var/app/lib/hadoop-ozone/recon/om/data
+mkdir -p /var/app/lib/hadoop-ozone/recon/scm/data
+
+echo "==> Mounting the missing LVs..."
+mount /dev/datavg/lv_ozone_metadata /var/app/lib/hadoop-ozone/recon/ozone-metadata
+mount /dev/datavg/lv_recon_data /var/app/lib/hadoop-ozone/recon/data
+mount /dev/datavg/lv_recon_om_data /var/app/lib/hadoop-ozone/recon/om/data
+mount /dev/datavg/lv_recon_scm_data /var/app/lib/hadoop-ozone/recon/scm/data
+
+echo "==> Adding to /etc/fstab..."
+cat <<EOF >> /etc/fstab
+/dev/datavg/lv_ozone_metadata    /var/app/lib/hadoop-ozone/recon/ozone-metadata   ext4 defaults 0 2
+/dev/datavg/lv_recon_data        /var/app/lib/hadoop-ozone/recon/data             ext4 defaults 0 2
+/dev/datavg/lv_recon_om_data     /var/app/lib/hadoop-ozone/recon/om/data          ext4 defaults 0 2
+/dev/datavg/lv_recon_scm_data    /var/app/lib/hadoop-ozone/recon/scm/data         ext4 defaults 0 2
+EOF
+
+echo "✅ Missing RECON volumes mounted and persisted successfully."
+
