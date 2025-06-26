@@ -125,3 +125,59 @@ EOF
 
 echo "✅ Missing RECON volumes mounted and persisted successfully."
 
+
+
+ALL in one ..
+Final vi build_filesystem_layout.sh
+===========
+#!/bin/bash
+set -e
+
+echo "==> Creating Physical Volumes on 10 hardware RAID disks..."
+pvcreate /dev/sd{b..k}
+
+echo "==> Creating Volume Group 'datavg'..."
+vgcreate datavg /dev/sd{b..k}
+
+echo "==> Creating Logical Volumes..."
+lvcreate -n lv_app_log -L 7.2T datavg
+lvcreate -n lv_app_lib -L 100G datavg
+lvcreate -n lv_opt_cloudera -L 100G datavg
+lvcreate -n lv_Opt_Cloudera -L 100G datavg
+lvcreate -n lv_ozone_metadata -L 7.2T datavg
+lvcreate -n lv_recon_data -L 7.2T datavg
+lvcreate -n lv_recon_om_data -L 7.2T datavg
+lvcreate -n lv_recon_scm_data -L 7.2T datavg
+
+echo "==> Formatting Logical Volumes with ext4..."
+for lv in lv_app_log lv_app_lib lv_opt_cloudera lv_Opt_Cloudera lv_ozone_metadata lv_recon_data lv_recon_om_data lv_recon_scm_data; do
+  mkfs.ext4 "/dev/datavg/$lv"
+done
+
+echo "==> Creating required mount directories..."
+mkdir -p /var/app/log
+mkdir -p /var/app/lib
+mkdir -p /opt/cloudera
+mkdir -p /opt/Cloudera
+mkdir -p /var/app/lib/hadoop-ozone/recon/ozone-metadata
+mkdir -p /var/app/lib/hadoop-ozone/recon/data
+mkdir -p /var/app/lib/hadoop-ozone/recon/om/data
+mkdir -p /var/app/lib/hadoop-ozone/recon/scm/data
+
+echo "==> Updating /etc/fstab for all LVs..."
+cat <<EOF >> /etc/fstab
+/dev/datavg/lv_app_log           /var/app/log                                     ext4 defaults 0 2
+/dev/datavg/lv_app_lib           /var/app/lib                                     ext4 defaults 0 2
+/dev/datavg/lv_opt_cloudera      /opt/cloudera                                    ext4 defaults 0 2
+/dev/datavg/lv_Opt_Cloudera      /opt/Cloudera                                    ext4 defaults 0 2
+/dev/datavg/lv_ozone_metadata    /var/app/lib/hadoop-ozone/recon/ozone-metadata   ext4 defaults 0 2
+/dev/datavg/lv_recon_data        /var/app/lib/hadoop-ozone/recon/data             ext4 defaults 0 2
+/dev/datavg/lv_recon_om_data     /var/app/lib/hadoop-ozone/recon/om/data          ext4 defaults 0 2
+/dev/datavg/lv_recon_scm_data    /var/app/lib/hadoop-ozone/recon/scm/data         ext4 defaults 0 2
+EOF
+
+echo "==> Mounting all volumes..."
+mount -a
+
+echo "✅ All volumes created, mounted, and persisted successfully."
+
