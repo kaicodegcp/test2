@@ -63,3 +63,37 @@ mount -a
 echo "✅ Filesystem layout created successfully for RHEL 8 with hardware RAID."
 
 
+missing
+=======
+
+#!/bin/bash
+set -e
+
+echo "==> Creating only missing Logical Volumes..."
+lvcreate -n lv_app_lib -L 100G datavg
+lvcreate -n lv_recon_om_data -L 7.2T datavg
+lvcreate -n lv_recon_scm_data -L 7.2T datavg
+
+echo "==> Formatting new Logical Volumes as ext4..."
+mkfs.ext4 /dev/datavg/lv_app_lib
+mkfs.ext4 /dev/datavg/lv_recon_om_data
+mkfs.ext4 /dev/datavg/lv_recon_scm_data
+
+echo "==> Creating missing mount directories..."
+mkdir -p /var/app/lib
+mkdir -p /var/app/lib/hadoop-ozone/recon/om/data
+mkdir -p /var/app/lib/hadoop-ozone/recon/scm/data
+
+echo "==> Updating /etc/fstab for newly added LVs..."
+cat <<EOF >> /etc/fstab
+/dev/datavg/lv_app_lib           /var/app/lib                                     ext4 defaults 0 2
+/dev/datavg/lv_recon_om_data     /var/app/lib/hadoop-ozone/recon/om/data          ext4 defaults 0 2
+/dev/datavg/lv_recon_scm_data    /var/app/lib/hadoop-ozone/recon/scm/data         ext4 defaults 0 2
+EOF
+
+echo "==> Mounting the new filesystems..."
+mount /var/app/lib
+mount /var/app/lib/hadoop-ozone/recon/om/data
+mount /var/app/lib/hadoop-ozone/recon/scm/data
+
+echo "✅ Only missing LVs have been added and mounted successfully."
