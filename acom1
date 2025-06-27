@@ -1,0 +1,44 @@
+Title
+Docker Image Upgrade and Ingestion – 1.5.5 Completed
+
+Team
+EAP Services
+
+Submitted for Week Ending
+6/27/2025
+
+Description
+The EAP Strategic Solutions team successfully completed the upgrade and ingestion of Cloudera Docker images version 1.5.5 into the Citi local Docker registry hosted on sd-wv58-kflz.nam.nsroot.net:5000. This activity ensures the latest CDS image set is available internally for secure, offline deployments on OpenShift.
+
+Key Actions Completed:
+
+Ingested over 40 Docker image tarballs from /docker/1.5.5/images/ directory.
+
+Verified successful Docker login to local registry with authentication (admin/admin) and confirmed push readiness.
+
+Loaded and validated images such as:
+
+cloudera/thunderhead-ml-api:1.5.4-h5-b24
+
+cloudera/dex/dex-rss:1.22.1-b108
+
+cloudera_thirdparty/vault:1.17.2-r0
+
+Confirmed images are visible and accessible via docker images after upgrade using Podman compatibility mode.
+
+Benefit to the team:
+
+Ensures latest Cloudera Data Services (CDS 1.5.5) images are available in Citi’s internal registry.
+
+Supports ongoing CDS deployments in offline OpenShift environments.
+
+Reduces dependency on external internet access and improves security posture through internal image hosting.
+
+Next Steps:
+
+Perform vulnerability scans on newly ingested 1.5.5 images using the Jenkins-based 3PIIP pipeline.
+
+Update CDS installation automation scripts to reference new image versions.
+
+Archive and backup 1.5.5 images for disaster recovery purposes.
+
