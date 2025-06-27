@@ -1,0 +1,37 @@
+Title
+Ozone Host Filesystem Cleanup and Layout Optimization
+
+Team
+EAP Services
+
+Submitted for Week Ending
+6/27/2025
+
+Description
+The EAP Strategic Solutions team completed a full filesystem cleanup and re-layout on the Ozone master host bdgtr139x24t2, aligning with the latest master node design. This work was completed without Unix SA involvement, saving significant time and bypassing the lengthy change order process.
+
+Key Achievements:
+
+Cleaned up and removed outdated mount points.
+
+Recreated filesystem using manual scripts to match the approved Ozone host layout.
+
+Configured optimized LVM-based mount points under /opt/Cloudera, /var/app/log, /var/app/lib, and all required Ozone metadata paths.
+
+Reduced expected delivery time from 30+ days (via Unix SA) to under 2 days.
+
+Validated with df -h and mounted all logical volumes as per new layout.
+
+Benefits to the team:
+
+Enabled immediate provisioning of Ozone services without delay.
+
+Avoided dependency on Unix service teams and change approval cycles.
+
+Set foundation for future Ansible-based automation to support filesystem provisioning for other EAP-managed nodes.
+
+Next Steps:
+
+Convert manual script to a generic Ansible playbook for reuse across environments.
+
+Integrate with EAP Ops workflow for future node setup.
