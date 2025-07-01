@@ -1,0 +1,39 @@
+Install Docker from Local Files
+Step 1: Download all RPMs (if not already):
+
+bash
+Copy
+Edit
+mkdir -p /tmp/docker-install
+cd /tmp/docker-install
+
+# Replace with your actual download method if needed (wget, curl, etc.)
+wget https://artifactrepository.net/.../containerd.io-1.6.33-*.rpm
+wget https://artifactrepository..net/.../docker-ce-28.1.1-*.rpm
+wget https://artifactrepository..net/.../docker-ce-cli-28.1.1-*.rpm
+wget https://artifactrepository..net/.../docker-compose-plugin-*.rpm
+wget https://artifactrepository..net/.../docker-buildx-plugin-*.rpm
+Step 2: Install all required RPMs:
+
+bash
+Copy
+Edit
+dnf install -y ./containerd.io-*.rpm ./docker-ce-*.rpm ./docker-ce-cli-*.rpm
+Optional plugins (safe to include):
+
+bash
+Copy
+Edit
+dnf install -y ./docker-compose-plugin-*.rpm ./docker-buildx-plugin-*.rpm
+🔁 Step 3: Start Docker Service
+bash
+Copy
+Edit
+systemctl enable --now docker
+Then verify:
+
+bash
+Copy
+Edit
+docker info
+docker images
