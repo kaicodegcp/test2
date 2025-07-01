@@ -140,3 +140,27 @@ Copy
 Edit
 openssl s_client -connect sd-wv58-kflz.nam.nsroot.net:5000 -CAfile /etc/ssl/certs/ca-bundle.crt
 Let me know if you want a script or oc debug loop for all nodes.
+
+
+
+-------------------------------
+
+
+#!/bin/bash
+
+CRT_FILE="/tmp/domain.crt"
+TARGET_PATH="/etc/pki/ca-trust/source/anchors/domain.crt"
+
+# Get all worker nodes
+WORKER_NODES=$(oc get nodes -l node-role.kubernetes.io/worker -o name)
+
+for NODE in $WORKER_NODES; do
+  echo "==> Patching certificate on $NODE..."
+
+  oc debug $NODE -- chroot /host /bin/bash -c "
+    mkdir -p /etc/pki/ca-trust/source/anchors &&
+    cp /host/tmp/domain.crt $TARGET_PATH &&
+    update-ca-trust extract &&
+    echo '✅ Updated trust store on $NODE'"
+done
+
