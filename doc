@@ -164,3 +164,16 @@ for NODE in $WORKER_NODES; do
     echo '✅ Updated trust store on $NODE'"
 done
 
+
+=================
+
+
+ Final Sanity from Within Worker Container
+Manually debug into a container running on that worker node:
+
+bash
+Copy
+Edit
+oc debug node/<node-name> -n <ns>
+chroot /host
+curl -v --cacert /etc/pki/tls/certs/ca-bundle.crt https://sd-wv58-kflz.nam.nsroot.net:5000/v2/_catalog -u admin:admin
