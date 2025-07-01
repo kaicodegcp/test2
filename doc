@@ -83,3 +83,60 @@ for node in $(oc get nodes --no-headers | awk '{print $1}'); do
   oc debug node/$node -- chroot /host curl -sf https://sd-wv58-kflz.nam.nsroot.net:5000/v2/_catalog || echo "$node FAILED TLS"
 done
 This will list which nodes still need the fix.
+
+
+
+=================
+
+
+Correct Steps to Fix It
+Here’s how to properly copy the domain.crt file into the debug pod’s host:
+
+✅ Step-by-step:
+Stay on the OpenShift admin host (not inside the pod)
+Where your cert file already exists:
+
+bash
+Copy
+Edit
+/tmp/domain.crt
+Start the debug session like you already did:
+
+bash
+Copy
+Edit
+oc debug node/dfgtr040x12h5.nam.nsroot.net
+Inside debug pod shell: mount host tools:
+
+bash
+Copy
+Edit
+chroot /host
+Open a new terminal/tab (stay outside the debug pod) and copy the cert:
+
+bash
+Copy
+Edit
+oc cp /tmp/domain.crt dfgtr040x12h5.nam.nsroot.net:/host/tmp/domain.crt
+Replace the node name (dfgtr040x12h5.nam.nsroot.net) with the actual node name if needed.
+
+Back in your chrooted debug shell, copy the cert to anchors:
+
+bash
+Copy
+Edit
+cp /tmp/domain.crt /etc/pki/ca-trust/source/anchors/sd-wv58-kflz.crt
+Update trust:
+
+bash
+Copy
+Edit
+update-ca-trust extract
+✅ Final Validation:
+To ensure the Docker registry is now trusted, run:
+
+bash
+Copy
+Edit
+openssl s_client -connect sd-wv58-kflz.nam.nsroot.net:5000 -CAfile /etc/ssl/certs/ca-bundle.crt
+Let me know if you want a script or oc debug loop for all nodes.
