@@ -167,3 +167,93 @@ bash
 Copy
 Edit
 curl -s -k -u admin:admin https://sd-wv58-kflz.nam.nsroot.net:5000/v2/cdp-private/custom-ubi/tags/list | jq
+
+
+
+
+========
+
+Perfect! You have the image:
+
+arduino
+Copy
+Edit
+sd-wv58-kflz.nam.nsroot.net:5000/cdp-private/cloudera/cdp-gateway:2.1.0-b288
+That’s what we’ll use in the DaemonSet.
+
+✅ Final cert-copy-daemonset.yaml (Offline-Compatible)
+yaml
+Copy
+Edit
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: domain-cert-sync
+  namespace: openshift-config
+spec:
+  selector:
+    matchLabels:
+      app: domain-cert-sync
+  template:
+    metadata:
+      labels:
+        app: domain-cert-sync
+    spec:
+      tolerations:
+      - operator: Exists
+      nodeSelector:
+        copy-cert: "true"
+      hostPID: true
+      hostNetwork: true
+      containers:
+      - name: cert-sync
+        image: sd-wv58-kflz.nam.nsroot.net:5000/cdp-private/cloudera/cdp-gateway:2.1.0-b288
+        securityContext:
+          privileged: true
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "[INFO] Copying domain.crt to host anchors directory..."
+          cp /certs/domain.crt /host/etc/pki/ca-trust/source/anchors/domain.crt
+          echo "[INFO] Running update-ca-trust inside host..."
+          chroot /host update-ca-trust extract
+          echo "[INFO] Sleeping for debug observation..."
+          sleep 600
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+        - name: domain-cert
+          mountPath: /certs
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+      - name: domain-cert
+        configMap:
+          name: domain-cert
+🛠️ Apply in Your CM Admin Host
+bash
+Copy
+Edit
+oc apply -f cert-copy-daemonset.yaml
+Then check:
+
+bash
+Copy
+Edit
+oc get pods -n openshift-config -o wide | grep domain-cert
+Pick one pod (e.g., on dfgtr162x01t2.nam.nsroot.net):
+
+bash
+Copy
+Edit
+oc logs <pod-name> -n openshift-config
+And validate with:
+
+bash
+Copy
+Edit
+oc debug node/<worker-node>
+chroot /host ls -l /etc/pki/ca-trust/source/anchors/domain.crt
+
