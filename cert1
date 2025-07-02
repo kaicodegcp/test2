@@ -1,0 +1,75 @@
+Step-by-Step Automation Plan:
+🔹 Step 1: Create a ConfigMap from domain.crt
+Make sure domain.crt is available on your CM admin node.
+
+bash
+Copy
+Edit
+oc create configmap domain-cert --from-file=domain.crt=/tmp/domain.crt -n openshift-config
+🔹 Step 2: Create a DaemonSet YAML to copy the cert
+Save the following YAML as copy-cert-daemonset.yaml:
+
+yaml
+Copy
+Edit
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: domain-cert-sync
+  namespace: openshift-config
+spec:
+  selector:
+    matchLabels:
+      app: domain-cert-sync
+  template:
+    metadata:
+      labels:
+        app: domain-cert-sync
+    spec:
+      hostPID: true
+      hostNetwork: true
+      containers:
+      - name: cert-sync
+        image: registry.access.redhat.com/ubi8/ubi
+        command:
+          - /bin/bash
+          - -c
+          - |
+            cp /certs/domain.crt /host/etc/pki/ca-trust/source/anchors/domain.crt
+            chroot /host update-ca-trust extract
+            sleep 30 # enough time to propagate before pod exits
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+        - name: domain-cert
+          mountPath: /certs
+      restartPolicy: Always
+      tolerations:
+      - operator: Exists
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+      - name: domain-cert
+        configMap:
+          name: domain-cert
+🔹 Step 3: Apply the DaemonSet
+bash
+Copy
+Edit
+oc apply -f copy-cert-daemonset.yaml
+🔹 Step 4: Confirm domain.crt was copied
+On any worker node, run:
+
+bash
+Copy
+Edit
+oc debug node/<worker-node-name>
+chroot /host ls -l /etc/pki/ca-trust/source/anchors/domain.crt
+🔹 Step 5: Clean Up (Optional After Success)
+Once certs are copied and update-ca-trust is done, you may delete the DaemonSet:
+
+bash
+Copy
+Edit
+oc delete daemonset domain-cert-sync -n openshift-config
