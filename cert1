@@ -145,3 +145,25 @@ bash
 Copy
 Edit
 chroot /host update-ca-trust check
+
+
+========
+
+Please run the following command on your CM admin node to show me what base images you have:
+
+bash
+Copy
+Edit
+curl -s -k -u admin:admin https://sd-wv58-kflz.nam.nsroot.net:5000/v2/_catalog | jq
+Then, for one repo that looks like it might contain a base image (e.g., cdp-private/base or ubi, etc.), run:
+
+bash
+Copy
+Edit
+curl -s -k -u admin:admin https://sd-wv58-kflz.nam.nsroot.net:5000/v2/<repo-name>/tags/list | jq
+Example:
+
+bash
+Copy
+Edit
+curl -s -k -u admin:admin https://sd-wv58-kflz.nam.nsroot.net:5000/v2/cdp-private/custom-ubi/tags/list | jq
