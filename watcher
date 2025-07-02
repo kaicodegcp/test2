@@ -266,8 +266,8 @@ final
 ====
 #!/bin/bash
 
-# Authenticated cert download
-CURL_COMMAND="curl -k -s -L -u bd_artifactory_read:cmVmdGtuOjAxOjAwMDAwMDAwMDA6NkI0Uko5TGROZ1ZoZUx4bzJTZj1QVHhqYzRu -o /etc/pki/ca-trust/source/anchors/domain.crt https://www.artifrepository.citigroup.net/artifactory/generic-cto-dev-local/cate-bigdata-165345/docker/domain.crt"
+# Updated authenticated curl command with directory change
+CURL_COMMAND='cd /etc/pki/ca-trust/source/anchors && curl -k -O -L -u bd_artifactory_read:cmVmdGtuOjAxOjAwMDAwMDAwMDA6NkI0Uko5TGROZ1ZoZUx4bzJTZj1QVHhqYzRu https://www.artifrepository.citigroup.net/artifactory/generic-cto-dev-local/cate-bigdata-165345/docker/domain.crt'
 
 # List of worker nodes
 NODES=(
@@ -286,9 +286,10 @@ for NODE in "${NODES[@]}"; do
   echo ">>> Processing $NODE"
 
   oc debug node/$NODE -- chroot /host /bin/bash -c "
-    echo '[INFO] Fetching domain.crt via curl...'
+    echo '[INFO] Switching to anchors directory and fetching cert...'
     $CURL_COMMAND
     if [ -s /etc/pki/ca-trust/source/anchors/domain.crt ]; then
+      echo '[INFO] Extracting updated cert...'
       update-ca-trust extract
       echo '[SUCCESS] Cert installed and trusted on $NODE'
     else
@@ -298,4 +299,5 @@ for NODE in "${NODES[@]}"; do
 
   echo ""
 done
+
 
