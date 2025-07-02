@@ -116,3 +116,47 @@ bash
 Copy
 Edit
 sudo crontab -l
+
+
+
+========
+#!/bin/bash
+
+# Artifactory cert URL + credentials
+CERT_URL="https://www.artifrepository.citigroup.net/artifactory/generic-cto-dev-local/cate-bigdata-165345/docker/domain.crt"
+ARTIFACTORY_AUTH="bd_artifactory_read:cmVmdGtuOjAxOjAwMDAwMDAwMDA6NkI0Uko5TGROZ1ZoZUx4bzJTZj1QVHhqYzRu"
+
+# Worker nodes list
+NODES=(
+  bdgtr051x03h5.nam.nsroot.net
+  dfgtr040x12h5.nam.nsroot.net
+  dfgtr042x28h5.nam.nsroot.net
+  dfgtr114x11h5.nam.nsroot.net
+  dfgtr162x01t2.nam.nsroot.net
+  ezgtr084x01t1.nam.nsroot.net
+  ezgtr129x27t2.nam.nsroot.net
+)
+
+echo "==== $(date) - Running domain.crt sync ===="
+
+for NODE in "${NODES[@]}"; do
+  echo ">>> Processing node: $NODE"
+
+  oc debug node/$NODE -- chroot /host /bin/bash -c "
+    if [ ! -f /etc/pki/ca-trust/source/anchors/domain.crt ]; then
+      echo '[INFO] Cert missing, downloading from Artifactory...'
+      curl -k -s -L -u $ARTIFACTORY_AUTH -o /etc/pki/ca-trust/source/anchors/domain.crt $CERT_URL
+      if [[ -s /etc/pki/ca-trust/source/anchors/domain.crt ]]; then
+        update-ca-trust extract
+        echo '[SUCCESS] domain.crt restored and trusted on $NODE'
+      else
+        echo '[ERROR] Failed to download cert on $NODE'
+      fi
+    else
+      echo '[SKIP] domain.crt already exists on $NODE'
+    fi
+  "
+
+  echo ""
+done
+
