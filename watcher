@@ -160,3 +160,47 @@ for NODE in "${NODES[@]}"; do
   echo ""
 done
 
+
+
+=======
+#!/bin/bash
+
+CERT_PATH="/tmp/domain.crt"
+CERT_URL="https://www.artifrepository.citigroup.net/artifactory/generic-cto-dev-local/cate-bigdata-165345/docker/domain.crt"
+ARTIFACTORY_AUTH="bd_artifactory_read:cmVmdGtuOjAxOjAwMDAwMDAwMDA6NkI0Uko5TGROZ1ZoZUx4bzJTZj1QVHhqYzRu"
+
+# Nodes
+NODES=(
+  bdgtr051x03h5.nam.nsroot.net
+  dfgtr040x12h5.nam.nsroot.net
+  dfgtr042x28h5.nam.nsroot.net
+  dfgtr114x11h5.nam.nsroot.net
+  dfgtr162x01t2.nam.nsroot.net
+  ezgtr084x01t1.nam.nsroot.net
+  ezgtr129x27t2.nam.nsroot.net
+)
+
+# Step 1: Download once to local
+echo "[INFO] Downloading cert locally..."
+curl -k -s -L -u $ARTIFACTORY_AUTH -o $CERT_PATH $CERT_URL
+
+if [[ ! -s $CERT_PATH ]]; then
+  echo "[FATAL] Failed to download domain.crt — aborting."
+  exit 1
+fi
+
+# Step 2: Push to nodes
+for NODE in "${NODES[@]}"; do
+  echo ">>> Pushing to $NODE..."
+
+  oc debug node/$NODE -- chroot /host /bin/bash -c "
+    cp /etc/pki/ca-trust/source/anchors/domain.crt /etc/pki/ca-trust/source/anchors/domain.crt.bak 2>/dev/null || true
+    cat <<EOF >/etc/pki/ca-trust/source/anchors/domain.crt
+$(cat $CERT_PATH)
+EOF
+    update-ca-trust extract
+    echo '[SUCCESS] Cert pushed and trusted on $NODE'
+  "
+
+done
+
