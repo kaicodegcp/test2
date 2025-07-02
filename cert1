@@ -73,3 +73,75 @@ bash
 Copy
 Edit
 oc delete daemonset domain-cert-sync -n openshift-config
+
+
+
+
+===============
+
+for node in bdgtr051x03h5.nam.nsroot.net \
+            dfgtr040x12h5.nam.nsroot.net \
+            dfgtr042x28h5.nam.nsroot.net \
+            dfgtr114x11h5.nam.nsroot.net \
+            dfgtr162x01t2.nam.nsroot.net \
+            ezgtr084x01t1.nam.nsroot.net \
+            ezgtr129x27t2.nam.nsroot.net; do
+    oc label node $node copy-cert=true --overwrite
+done
+
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: domain-cert-sync
+  namespace: openshift-config
+spec:
+  selector:
+    matchLabels:
+      app: domain-cert-sync
+  template:
+    metadata:
+      labels:
+        app: domain-cert-sync
+    spec:
+      tolerations:
+      - operator: "Exists"
+      nodeSelector:
+        copy-cert: "true"
+      hostPID: true
+      hostNetwork: true
+      containers:
+      - name: cert-sync
+        image: registry.access.redhat.com/ubi8/ubi
+        securityContext:
+          privileged: true
+        command:
+        - /bin/bash
+        - -c
+        - |
+          cp /certs/domain.crt /host/etc/pki/ca-trust/source/anchors/domain.crt
+          chroot /host update-ca-trust extract
+          sleep 20
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+        - name: domain-cert
+          mountPath: /certs
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+      - name: domain-cert
+        configMap:
+          name: domain-cert
+
+oc apply -f cert-copy-daemonset.yaml
+
+oc debug node/<worker-node>
+chroot /host ls -l /etc/pki/ca-trust/source/anchors/domain.crt
+Then confirm cert is loaded:
+
+bash
+Copy
+Edit
+chroot /host update-ca-trust check
