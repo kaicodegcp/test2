@@ -260,3 +260,42 @@ for NODE in "${NODES[@]}"; do
   oc delete pod "$POD" --grace-period=0 --force >/dev/null 2>&1
 done
 
+
+===
+final
+====
+#!/bin/bash
+
+# Authenticated cert download
+CURL_COMMAND="curl -k -s -L -u bd_artifactory_read:cmVmdGtuOjAxOjAwMDAwMDAwMDA6NkI0Uko5TGROZ1ZoZUx4bzJTZj1QVHhqYzRu -o /etc/pki/ca-trust/source/anchors/domain.crt https://www.artifrepository.citigroup.net/artifactory/generic-cto-dev-local/cate-bigdata-165345/docker/domain.crt"
+
+# List of worker nodes
+NODES=(
+  bdgtr051x03h5.nam.nsroot.net
+  dfgtr040x12h5.nam.nsroot.net
+  dfgtr042x28h5.nam.nsroot.net
+  dfgtr114x11h5.nam.nsroot.net
+  dfgtr162x01t2.nam.nsroot.net
+  ezgtr084x01t1.nam.nsroot.net
+  ezgtr129x27t2.nam.nsroot.net
+)
+
+echo "==== $(date) - domain.crt sync started ===="
+
+for NODE in "${NODES[@]}"; do
+  echo ">>> Processing $NODE"
+
+  oc debug node/$NODE -- chroot /host /bin/bash -c "
+    echo '[INFO] Fetching domain.crt via curl...'
+    $CURL_COMMAND
+    if [ -s /etc/pki/ca-trust/source/anchors/domain.crt ]; then
+      update-ca-trust extract
+      echo '[SUCCESS] Cert installed and trusted on $NODE'
+    else
+      echo '[ERROR] Cert download failed on $NODE'
+    fi
+  "
+
+  echo ""
+done
+
