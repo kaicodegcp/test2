@@ -1,15 +1,11 @@
-Step-by-Step Shell Script: deploy-cert-watcher.sh
+Final Script: watch-cert-sync.sh
 bash
 Copy
 Edit
 #!/bin/bash
 
-# Config
+# Configuration
 CERT_URL="https://www.artifrepository.citigroup.net/artifactory/generic-cto-dev-local/cate-bigdata-165345/docker/domain.crt"
-LOCAL_IMAGE="sd-wv58-kflz.nam.nsroot.net:5000/cdp-private/cloudera/cdp-gateway:2.1.0-b288"
-DAEMONSET_FILE="/tmp/cert-watcher-daemonset.yaml"
-
-# Worker nodes (update if needed)
 NODES=(
   bdgtr051x03h5.nam.nsroot.net
   dfgtr040x12h5.nam.nsroot.net
@@ -20,87 +16,103 @@ NODES=(
   ezgtr129x27t2.nam.nsroot.net
 )
 
-echo "[STEP 1] Labeling all worker nodes with copy-cert=true"
-for NODE in "${NODES[@]}"; do
-  oc label node "$NODE" copy-cert=true --overwrite
+# Loop forever every 30 seconds
+while true; do
+  echo "==== $(date) - Running cert sync ===="
+
+  for NODE in "${NODES[@]}"; do
+    echo ">>> Processing node: $NODE"
+
+    oc debug node/$NODE -- chroot /host /bin/bash -c "
+      if [ ! -f /etc/pki/ca-trust/source/anchors/domain.crt ]; then
+        echo '[INFO] Downloading cert on $NODE...'
+        curl -s -o /etc/pki/ca-trust/source/anchors/domain.crt $CERT_URL
+        if [[ -s /etc/pki/ca-trust/source/anchors/domain.crt ]]; then
+          echo '[INFO] Updating CA trust on $NODE...'
+          update-ca-trust extract
+          echo '[SUCCESS] Cert installed and trusted on $NODE.'
+        else
+          echo '[ERROR] Cert download failed on $NODE.'
+        fi
+      else
+        echo '[SKIP] Cert already exists on $NODE.'
+      fi
+    "
+
+    echo ""
+  done
+
+  echo "[SLEEP] Waiting 30 seconds before next check..."
+  sleep 30
 done
-
-echo "[STEP 2] Creating DaemonSet YAML"
-cat <<EOF > "$DAEMONSET_FILE"
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: domain-cert-watcher
-  namespace: openshift-config
-spec:
-  selector:
-    matchLabels:
-      app: domain-cert-watcher
-  template:
-    metadata:
-      labels:
-        app: domain-cert-watcher
-    spec:
-      tolerations:
-      - operator: Exists
-      nodeSelector:
-        copy-cert: "true"
-      hostPID: true
-      hostNetwork: true
-      containers:
-      - name: cert-watcher
-        image: ${LOCAL_IMAGE}
-        securityContext:
-          privileged: true
-        command:
-        - /bin/bash
-        - -c
-        - |
-          echo "[WATCHER] Starting cert monitor..."
-          while true; do
-            if [ ! -f /host/etc/pki/ca-trust/source/anchors/domain.crt ]; then
-              echo "[WATCHER] domain.crt missing — restoring..."
-              curl -s -o /host/etc/pki/ca-trust/source/anchors/domain.crt ${CERT_URL}
-              chroot /host update-ca-trust extract
-              echo "[WATCHER] domain.crt restored."
-            else
-              echo "[WATCHER] domain.crt present."
-            fi
-            sleep 300
-          done
-        volumeMounts:
-        - name: host-root
-          mountPath: /host
-        - name: ca-cert-dir
-          mountPath: /host/etc/pki/ca-trust/source/anchors
-        - name: cert
-          mountPath: /certs
-      volumes:
-      - name: host-root
-        hostPath:
-          path: /
-      - name: ca-cert-dir
-        hostPath:
-          path: /etc/pki/ca-trust/source/anchors
-      - name: cert
-        emptyDir: {}
-EOF
-
-echo "[STEP 3] Applying DaemonSet"
-oc apply -f "$DAEMONSET_FILE"
-
-echo "[DONE] Cert watcher deployed to all worker nodes."
-🔧 To Use This
-Save it:
+✅ How to Use
+Save and make executable:
 
 bash
 Copy
 Edit
-vi deploy-cert-watcher.sh
-chmod +x deploy-cert-watcher.sh
-Run it:
+vi watch-cert-sync.sh
+chmod +x watch-cert-sync.sh
+Run in background:
 
 bash
 Copy
 Edit
-./deploy-cert-watcher.sh
+nohup ./watch-cert-sync.sh >> /var/log/domain-cert-sync.log 2>&1 &
+(Optional) Check log:
+
+bash
+Copy
+Edit
+tail -f /var/log/domain-cert-sync.log
+(Optional) Add to /etc/rc.local or crontab to auto-start on boot.
+
+✅ What It Does
+Runs every 30 seconds
+
+Uses oc debug + chroot on each worker node
+
+Skips nodes where domain.crt already exists
+
+Auto-restores and trusts if missing
+
+Let me know if you want alerts (email or Slack) on failure, or a systemd unit to run this as a managed service.
+
+
+
+
+
+
+
+
+You said:
+share crontab no sleep 
+
+
+ChatGPT said:
+Sure! To run your domain.crt sync continuously every 30 seconds via cron, we’ll use two entries spaced 30 seconds apart, since standard cron syntax only supports per-minute granularity.
+
+✅ Step-by-Step: Run Sync Script Every 30 Seconds via Crontab
+🔹 1. Move your script to a known location
+bash
+Copy
+Edit
+sudo mv watch-cert-sync.sh /usr/local/bin/domain-cert-sync.sh
+sudo chmod +x /usr/local/bin/domain-cert-sync.sh
+🔹 2. Edit the root crontab
+bash
+Copy
+Edit
+sudo crontab -e
+Add the following 2 lines:
+
+cron
+Copy
+Edit
+* * * * * /usr/local/bin/domain-cert-sync.sh >> /var/log/domain-cert-sync.log 2>&1
+* * * * * sleep 30 && /usr/local/bin/domain-cert-sync.sh >> /var/log/domain-cert-sync.log 2>&1
+🔹 3. Confirm it's scheduled
+bash
+Copy
+Edit
+sudo crontab -l
